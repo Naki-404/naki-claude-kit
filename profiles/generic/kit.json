@@ -1,0 +1,75 @@
+{
+  "profile": "generic",
+  "enabled": true,
+  "description": "Baseline guards for any project; copy to .claude/kit.json and add project paths",
+
+  "protected": {
+    "reason": "listed as frozen in .claude/kit.json",
+    "paths": []
+  },
+
+  "secrets": {
+    "enabled": true,
+    "block_read_tool": true,
+    "files": [".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.p12", "id_rsa*", "id_ed25519*", ".netrc", "credentials.json", "*.kdbx"],
+    "allow_files": [".env.example", ".env.sample", ".env.template", "*.pub"],
+    "scan_skip": []
+  },
+
+  "git": {
+    "block_force_push": true,
+    "block_skip_hooks": true,
+    "block_ai_attribution": true,
+    "ask_destructive": true
+  },
+  "ask_recursive_delete": true,
+
+  "require_flags": [],
+  "ask_commands": [],
+  "mcp_rules": [
+    {"tool": "(?i)__(?:execute_|run_)?(?:sql|query)$", "match": "sql_write", "decision": "ask",
+     "reason": "this SQL changes data or state through an MCP server; confirm it is meant to run"}
+  ],
+  "warn_commands": [
+    {"pattern": "\\bgit\\b[^\\n;&|]*\\bpush\\b", "message": "push only if the user asked for it, after the tests passed; never force-push"},
+    {"pattern": "\\b(?:pip|uv\\s+pip|poetry|npm|pnpm|yarn)\\s+(?:install|add|i)\\s+[A-Za-z@]", "message": "this adds a third-party dependency: tell the user the package name and why, and pin the version"}
+  ],
+  "long_running": [
+    {"name": "dev server", "pattern": "\\b(?:npm|pnpm|yarn)\\s+(?:run\\s+)?(?:dev|start|preview|serve)\\b|\\bnpx\\s+vite\\b|(?:^|[\\s;&|])vite(?:\\s|$)|\\bnext\\s+dev\\b", "hint": " or use the preview tools"},
+    {"name": "uvicorn / flask / django runserver", "pattern": "\\buvicorn\\b(?![^\\n]*--help)|\\bflask\\s+run\\b|manage\\.py\\s+runserver", "hint": ""},
+    {"name": "http.server", "pattern": "\\bpython\\S*\\s+-m\\s+http\\.server\\b", "hint": ""},
+    {"name": "docker compose up", "pattern": "\\bdocker(?:-|\\s+)compose\\b[^\\n]*\\bup\\b(?![^\\n]*\\s(?:-d|--detach)\\b)", "hint": " or add -d"},
+    {"name": "watch mode", "pattern": "\\bvitest\\b(?![^\\n]*\\brun\\b)|\\bjest\\b[^\\n]*--watch|--watch\\b", "hint": ""}
+  ],
+  "post_edit": [],
+  "stop_checks": [],
+  "debug_patterns": {
+    "py": ["^\\s*breakpoint\\(\\)", "\\bimport\\s+i?pdb\\b", "\\bi?pdb\\.set_trace\\("],
+    "ts": ["\\bconsole\\.(?:log|debug)\\(", "\\bdebugger\\b"],
+    "tsx": ["\\bconsole\\.(?:log|debug)\\(", "\\bdebugger\\b"],
+    "js": ["\\bconsole\\.(?:log|debug)\\(", "\\bdebugger\\b"],
+    "jsx": ["\\bconsole\\.(?:log|debug)\\(", "\\bdebugger\\b"]
+  },
+  "commit_gate": {"enabled": true, "max_file_mb": 5, "checks": []},
+  "guarded_configs": {
+    "reason": "change the code so the check passes instead of loosening the check; edit only if the user asked",
+    "paths": ["ruff.toml", ".ruff.toml", "pyproject.toml", "setup.cfg", ".flake8", "mypy.ini", "pytest.ini",
+              "eslint.config.*", ".eslintrc*", ".prettierrc*", "tsconfig*.json", "biome.json", "vitest.config.*",
+              "jest.config.*", ".pre-commit-config.yaml", "**/.github/workflows/*.yml", "**/.github/workflows/*.yaml"]
+  },
+  "suppressions": {"enabled": true},
+  "adhoc_docs": {
+    "names": "(?:NOTES|TODO|SCRATCH|TEMP|DRAFT|BRAINSTORM|SPIKE|DEBUG|WIP|SUMMARY|[A-Z_]+_SUMMARY|[A-Z_]+_NOTES)\\.(?:md|txt)",
+    "allowed": ["**/docs/**"]
+  },
+  "session_context": {"enabled": true, "frozen_check": true, "gpu": false, "rules_after_compact": []},
+  "codemap": {"dirs": [], "auto_update": true},
+
+  "mcp": {
+    "repos": ["."],
+    "docs": ["README.md"],
+    "datasets": null,
+    "results": [],
+    "frozen_manifest": ".claude/kit-frozen.sha256"
+  }
+}

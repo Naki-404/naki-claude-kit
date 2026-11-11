@@ -1,0 +1,328 @@
+{
+  "profile": "example",
+  "enabled": true,
+  "description": "Example project used by the tests: an app with frozen evaluation data, paid runs and GPU jobs",
+  "protected": {
+    "reason": "frozen evaluation data; labels and the policy file change only by hand",
+    "paths": [
+      "app/research/dataset/test_*.jsonl",
+      "app/research/dataset/annotation*.xlsx",
+      "app/research/dataset/adjudication*.xlsx",
+      "app/research/experiment/config/cascade_policy.yaml"
+    ]
+  },
+  "secrets": {
+    "enabled": true,
+    "block_read_tool": true,
+    "files": [
+      ".env",
+      ".env.*",
+      "*.pem",
+      "*.key",
+      "*.pfx",
+      "*.p12",
+      "id_rsa*",
+      "id_ed25519*",
+      ".netrc",
+      "credentials.json",
+      "*.kdbx"
+    ],
+    "allow_files": [
+      ".env.example",
+      ".env.sample",
+      ".env.template",
+      "*.pub"
+    ],
+    "scan_skip": [
+      "naki-claude-kit/tests/**"
+    ]
+  },
+  "git": {
+    "block_force_push": true,
+    "block_skip_hooks": true,
+    "block_ai_attribution": false,
+    "ask_destructive": true
+  },
+  "ask_recursive_delete": true,
+  "require_flags": [
+    {
+      "pattern": "research[./\\\\]experiment[./\\\\]execute|research\\.experiment\\s+execute|run_experiment\\.py",
+      "any_of": [
+        "--usd-budget",
+        "--dry-run",
+        "--help",
+        "-h"
+      ],
+      "reason": "paid cloud run without --usd-budget; get the user's approval with a cost estimate and pass a budget cap"
+    }
+  ],
+  "ask_commands": [
+    {
+      "pattern": "(?:^|[;&|]\\s*)(?:\\S*\\s*=\\S*\\s+)*(?:ollama\\s+(?:serve|run|create)\\b|\\S*python\\S*\\s+(?:-\\S+\\s+)*(?:\\S*[/\\\\])?(?:serve_ollama|train_worker|programme|programme_gui|train_gui|run_local_tests|eval_adapter|eval_ollama|export_ollama)(?:\\.py)?\\b|\\S*python\\S*\\s+-m\\s+research\\.finetune)",
+      "reason": "GPU job: confirm the GPU is free now"
+    },
+    {
+      "pattern": "teacher\\.py",
+      "reason": "teacher.py calls a paid cloud model; confirm the cost first"
+    },
+    {
+      "pattern": "build_hard\\.py|build_real_test\\.py|build_candidates\\.py|research[./\\\\]dataset[./\\\\]collect\\.py",
+      "reason": "this script builds test sets; frozen sets must not be rebuilt"
+    },
+    {
+      "pattern": "annotate\\.py\\s+(?:import|apply|merge|adjudicate)",
+      "reason": "writes labels into frozen test sets; only from files the human annotators produced"
+    },
+    {
+      "pattern": "\\b(?:docker\\s+compose|docker-compose)\\b[^\\n]*\\bdown\\b[^\\n]*-v|alembic\\s+downgrade",
+      "reason": "drops database data or schema"
+    },
+    {
+      "pattern": "\\baz\\s+(?:group|vm|webapp|postgres|storage)\\s+(?:create|delete|update)|\\bgh\\s+repo\\s+(?:delete|edit)|\\bgh\\s+release\\s+create",
+      "reason": "changes cloud or GitHub resources"
+    }
+  ],
+  "warn_commands": [
+    {
+      "pattern": "\\bgit\\b[^\\n;&|]*\\bpush\\b",
+      "message": "push only if the user asked for it in this conversation, after the tests passed; never force-push"
+    },
+    {
+      "pattern": "\\b(?:pip|uv\\s+pip|poetry|npm|pnpm|yarn)\\s+(?:install|add|i)\\s+[A-Za-z@]",
+      "message": "this adds a third-party dependency: tell the user the package name and why, and pin the version"
+    },
+    {
+      "pattern": "\\bgit\\b[^\\n;&|]*\\bcommit\\b",
+      "message": "commit only when the user asked; plain message"
+    }
+  ],
+  "long_running": [
+    {
+      "name": "vite dev server",
+      "pattern": "\\bnpm\\s+(?:run\\s+)?(?:dev|start|preview)\\b|\\bnpx\\s+vite\\b|(?:^|[\\s;&|])vite(?:\\s|$)",
+      "hint": " or use the preview tools (preview_start)"
+    },
+    {
+      "name": "uvicorn",
+      "pattern": "\\buvicorn\\b(?![^\\n]*--help)",
+      "hint": ""
+    },
+    {
+      "name": "ollama serve",
+      "pattern": "^(?:ollama\\s+serve\\b|\\S*python\\S*\\s+(?:-\\S+\\s+)*\\S*serve_ollama(?:\\.py)?\\b)",
+      "hint": ""
+    },
+    {
+      "name": "http.server",
+      "pattern": "\\bpython\\S*\\s+-m\\s+http\\.server\\b",
+      "hint": ""
+    },
+    {
+      "name": "docker compose up",
+      "pattern": "\\bdocker(?:-|\\s+)compose\\b[^\\n]*\\bup\\b(?![^\\n]*\\s(?:-d|--detach)\\b)",
+      "hint": " or add -d"
+    },
+    {
+      "name": "local stand",
+      "pattern": "start_local\\.(?:ps1|bat)",
+      "hint": ""
+    },
+    {
+      "name": "watch mode",
+      "pattern": "\\bvitest\\b(?![^\\n]*\\brun\\b)|\\bnpm\\s+run\\s+test:watch\\b|--watch\\b",
+      "hint": "; for a single run use `npm test` (vitest run)"
+    }
+  ],
+  "post_edit": [
+    {
+      "name": "ruff",
+      "paths": [
+        "app/backend/**/*.py",
+        "app/research/**/*.py"
+      ],
+      "cmd": [
+        "app/.venv/Scripts/ruff.exe",
+        "check",
+        "--quiet",
+        "--no-fix",
+        "{file}"
+      ],
+      "cwd": "app",
+      "timeout": 30
+    }
+  ],
+  "stop_checks": [
+    {
+      "name": "TypeScript (tsc -b)",
+      "paths": [
+        "app/frontend/src/**/*.ts",
+        "app/frontend/src/**/*.tsx"
+      ],
+      "cmd": [
+        "app/frontend/node_modules/.bin/tsc.cmd",
+        "-b",
+        "--pretty",
+        "false"
+      ],
+      "cwd": "app/frontend",
+      "timeout": 120
+    },
+    {
+      "name": "eslint",
+      "paths": [
+        "app/frontend/**/*.ts",
+        "app/frontend/**/*.tsx"
+      ],
+      "cmd": [
+        "app/frontend/node_modules/.bin/eslint.cmd",
+        "--no-warn-ignored",
+        "{files}"
+      ],
+      "cwd": "app/frontend",
+      "timeout": 90
+    }
+  ],
+  "debug_patterns": {
+    "py": [
+      "^\\s*breakpoint\\(\\)",
+      "\\bimport\\s+i?pdb\\b",
+      "\\bi?pdb\\.set_trace\\("
+    ],
+    "ts": [
+      "\\bconsole\\.(?:log|debug)\\(",
+      "\\bdebugger\\b"
+    ],
+    "tsx": [
+      "\\bconsole\\.(?:log|debug)\\(",
+      "\\bdebugger\\b"
+    ],
+    "js": [
+      "\\bconsole\\.(?:log|debug)\\(",
+      "\\bdebugger\\b"
+    ],
+    "jsx": [
+      "\\bconsole\\.(?:log|debug)\\(",
+      "\\bdebugger\\b"
+    ]
+  },
+  "commit_gate": {
+    "enabled": true,
+    "max_file_mb": 5,
+    "checks": [
+      {
+        "name": "ruff",
+        "paths": [
+          "app/backend/**/*.py"
+        ],
+        "cmd": [
+          "app/.venv/Scripts/ruff.exe",
+          "check",
+          "--quiet",
+          "--no-fix",
+          "{files}"
+        ],
+        "cwd": "app",
+        "timeout": 60
+      },
+      {
+        "name": "eslint",
+        "paths": [
+          "app/frontend/**/*.ts",
+          "app/frontend/**/*.tsx"
+        ],
+        "cmd": [
+          "app/frontend/node_modules/.bin/eslint.cmd",
+          "--no-warn-ignored",
+          "{files}"
+        ],
+        "cwd": "app/frontend",
+        "timeout": 90
+      }
+    ]
+  },
+  "guarded_configs": {
+    "reason": "change the code so the check passes instead of loosening the check; edit only if the user asked",
+    "paths": [
+      "ruff.toml",
+      ".ruff.toml",
+      "pyproject.toml",
+      "setup.cfg",
+      ".flake8",
+      "mypy.ini",
+      "pytest.ini",
+      "alembic.ini",
+      "eslint.config.*",
+      ".eslintrc*",
+      ".prettierrc*",
+      "tsconfig*.json",
+      "vitest.config.*",
+      "playwright.config.*",
+      ".pre-commit-config.yaml",
+      "**/.github/workflows/*.yml",
+      "**/.github/workflows/*.yaml"
+    ]
+  },
+  "suppressions": {
+    "enabled": true
+  },
+  "adhoc_docs": {
+    "names": "(?:NOTES|TODO|SCRATCH|TEMP|DRAFT|BRAINSTORM|SPIKE|DEBUG|WIP|SUMMARY|CHANGES|[A-Z_]+_SUMMARY|[A-Z_]+_NOTES|[A-Z_]+_REPORT)\\.(?:md|txt)",
+    "allowed": [
+      "plans/**",
+      "**/docs/**",
+      "naki-claude-kit/**"
+    ]
+  },
+  "session_context": {
+    "enabled": true,
+    "frozen_check": true,
+    "gpu": true,
+    "rules_after_compact": [
+      "Frozen evaluation files are never edited or rebuilt.",
+      "Paid cloud runs need the user's approval with a cost estimate and --usd-budget.",
+      "Ask before GPU work.",
+      "Commit only when asked; never force-push.",
+      "Never print credentials or API error bodies."
+    ]
+  },
+  "codemap": {
+    "dirs": [
+      "app"
+    ]
+  },
+  "mcp": {
+    "status_log": "plans/STATUS_2026-10-31.md",
+    "cost_files": [
+      "app/research/experiment/predictions*.jsonl"
+    ],
+    "cost_exclude": [
+      "*.bak.jsonl",
+      "*.bak"
+    ],
+    "repos": [
+      "app",
+      "naki-claude-kit"
+    ],
+    "docs": [
+      "plans/STATUS_2026-10-31.md",
+      "app/docs/ARCHITECTURE.md",
+      "app/docs/SECURITY.md",
+      "app/docs/research/protocol.md"
+    ],
+    "datasets": {
+      "glob": "app/research/dataset/test_*.jsonl",
+      "fields": [
+        "gold",
+        "set",
+        "part",
+        "source",
+        "split"
+      ]
+    },
+    "results": [
+      "app/research/results",
+      "app/research/experiment/results_*"
+    ],
+    "frozen_manifest": ".claude/kit-frozen.sha256"
+  }
+}
